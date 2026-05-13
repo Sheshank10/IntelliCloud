@@ -1,24 +1,3 @@
-# 🧠 IntelliCloud - Face Detecting Device for Attendance
-
-**Bachelor of Technology – Artificial Intelligence and Machine Learning**  
-Malla Reddy University | Batch 15 | Department of AIML
-
----
-
-## 👥 Team Members
-
-| Name | Roll Number |
-|------|------------|
-| Allenki Harshini | 2111CS020162 |
-| Harshini Pedapudi | 2111CS020163 |
-| A Harshini | 2111CS020164 |
-| K Harshith | 2111CS020165 |
-| T Harshitha | 2111CS020166 |
-
-**Project Guide:** Prof. A Kalyani
-
----
-
 ## 📌 Overview
 
 IntelliCloud is an AI-powered attendance system that uses **facial recognition** to automatically mark student attendance. It combines:
