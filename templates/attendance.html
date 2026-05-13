@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Mark Attendance{% endblock %}
+{% block content %}
+<h2>📷 Mark Attendance via Face Recognition</h2>
+<p>Look directly at the camera. The system will recognize your face and mark attendance automatically.</p>
+
+<div class="camera-container">
+  <video id="video" autoplay playsinline width="640" height="480"></video>
+  <canvas id="overlay" width="640" height="480"></canvas>
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" onclick="startCamera()">Start Camera</button>
+  <button class="btn btn-success" onclick="captureAndRecognize()">Recognize & Mark</button>
+  <button class="btn btn-secondary" onclick="stopCamera()">Stop Camera</button>
+</div>
+
+<canvas id="canvas" width="640" height="480" style="display:none;"></canvas>
+<div id="result" class="result-box"></div>
+
+<h3>Today's Attendance</h3>
+<table id="attendanceTable">
+  <thead>
+    <tr><th>Roll Number</th><th>Name</th><th>Time</th><th>Status</th><th>Confidence</th></tr>
+  </thead>
+  <tbody id="attendanceBody"></tbody>
+</table>
+<button class="btn btn-secondary" onclick="exportCsv()">⬇ Export CSV</button>
+
+<script>
+let stream = null;
+let autoInterval = null;
+
+async function startCamera() {
+  const video = document.getElementById('video');
+  stream = await navigator.mediaDevices.getUserMedia({video: {width: 640, height: 480}});
+  video.srcObject = stream;
+  loadAttendance();
+  autoInterval = setInterval(captureAndRecognize, 3000);
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  clearInterval(autoInterval);
+}
+
+async function captureAndRecognize() {
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  if (!stream) return;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0, 640, 480);
+  const b64 = canvas.toDataURL('image/jpeg', 0.9);
+
+  const res = await fetch('/api/recognize', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({image: b64})
+  });
+  const data = await res.json();
+  showResult(data);
+  if (data.success) loadAttendance();
+}
+
+function showResult(data) {
+  const el = document.getElementById('result');
+  if (data.success) {
+    el.innerHTML = `✅ <strong>${data.student.name}</strong> (${data.student.roll_number}) marked Present at ${new Date().toLocaleTimeString()}`;
+    el.className = 'result-box success';
+  } else if (data.already_marked) {
+    el.innerHTML = `ℹ️ ${data.message}`;
+    el.className = 'result-box info';
+  } else {
+    el.innerHTML = `❌ ${data.message}`;
+    el.className = 'result-box error';
+  }
+}
+
+async function loadAttendance() {
+  const res = await fetch('/api/attendance/today');
+  const data = await res.json();
+  const tbody = document.getElementById('attendanceBody');
+  tbody.innerHTML = data.records.map(r => `
+    <tr>
+      <td>${r.roll_number}</td>
+      <td>${r.student_name}</td>
+      <td>${r.time_in || '-'}</td>
+      <td><span class="badge ${r.status.toLowerCase()}">${r.status}</span></td>
+      <td>${r.confidence ? r.confidence.toFixed(1) : '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function exportCsv() {
+  window.location = '/api/attendance/export';
+}
+
+loadAttendance();
+</script>
+{% endblock %}

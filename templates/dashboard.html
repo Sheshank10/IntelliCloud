@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h2>📊 Attendance Dashboard</h2>
+
+<div class="summary-cards">
+  <div class="card green"><span class="card-num" id="presentCount">-</span><span class="card-label">Present Today</span></div>
+  <div class="card red"><span class="card-num" id="absentCount">-</span><span class="card-label">Absent Today</span></div>
+  <div class="card blue"><span class="card-num" id="totalCount">-</span><span class="card-label">Total Students</span></div>
+</div>
+
+<div class="dashboard-controls">
+  <label>Filter by Date:
+    <input type="date" id="filterDate" onchange="loadByDate()"/>
+  </label>
+  <button class="btn btn-secondary" onclick="exportCsv()">⬇ Export CSV</button>
+</div>
+
+<h3>Attendance Records</h3>
+<table id="dashTable">
+  <thead>
+    <tr><th>Roll Number</th><th>Name</th><th>Date</th><th>Time In</th><th>Status</th></tr>
+  </thead>
+  <tbody id="dashBody"></tbody>
+</table>
+
+<h3>Registered Students</h3>
+<table>
+  <thead><tr><th>Roll Number</th><th>Name</th><th>Department</th><th>Year</th><th>Images</th><th>Actions</th></tr></thead>
+  <tbody id="studentsBody"></tbody>
+</table>
+
+<script>
+async function loadSummary() {
+  const res = await fetch('/api/attendance/summary');
+  const { summary } = await res.json();
+  document.getElementById('presentCount').textContent = summary.present_today;
+  document.getElementById('absentCount').textContent = summary.absent_today;
+  document.getElementById('totalCount').textContent = summary.total_students;
+}
+
+async function loadToday() {
+  const res = await fetch('/api/attendance/today');
+  const { records } = await res.json();
+  renderTable(records);
+}
+
+async function loadByDate() {
+  const date = document.getElementById('filterDate').value;
+  if (!date) return;
+  const res = await fetch(`/api/attendance/export?date=${date}`);
+  // Just reload the table view
+  const res2 = await fetch(`/api/attendance/today`);  // Replace with date-specific endpoint
+  const { records } = await res2.json();
+  renderTable(records);
+}
+
+function renderTable(records) {
+  const tbody = document.getElementById('dashBody');
+  tbody.innerHTML = records.map(r => `
+    <tr>
+      <td>${r.roll_number}</td>
+      <td>${r.student_name}</td>
+      <td>${r.date}</td>
+      <td>${r.time_in || '-'}</td>
+      <td><span class="badge ${r.status.toLowerCase()}">${r.status}</span></td>
+    </tr>
+  `).join('') || '<tr><td colspan="5">No records found.</td></tr>';
+}
+
+async function loadStudents() {
+  const res = await fetch('/api/students');
+  const { students } = await res.json();
+  document.getElementById('studentsBody').innerHTML = students.map(s => `
+    <tr>
+      <td>${s.roll_number}</td>
+      <td>${s.name}</td>
+      <td>${s.department || '-'}</td>
+      <td>${s.year || '-'}</td>
+      <td>${s.image_count}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.roll_number}')">Remove</button></td>
+    </tr>
+  `).join('');
+}
+
+async function deleteStudent(roll) {
+  if (!confirm(`Remove student ${roll}?`)) return;
+  await fetch(`/api/students/${roll}`, {method: 'DELETE'});
+  loadStudents();
+}
+
+function exportCsv() {
+  const date = document.getElementById('filterDate').value;
+  window.location = `/api/attendance/export${date ? '?date=' + date : ''}`;
+}
+
+loadSummary();
+loadToday();
+loadStudents();
+</script>
+{% endblock %}

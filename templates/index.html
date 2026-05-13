@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}IntelliCloud - Home{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>🧠 IntelliCloud</h1>
+  <h2>Face Detecting Device for Attendance</h2>
+  <p>Automated, secure, and efficient attendance management powered by AI and facial recognition.</p>
+
+  <div class="summary-cards" id="summaryCards">
+    <div class="card">
+      <span class="card-num" id="totalStudents">-</span>
+      <span class="card-label">Total Students</span>
+    </div>
+    <div class="card">
+      <span class="card-num" id="presentToday">-</span>
+      <span class="card-label">Present Today</span>
+    </div>
+    <div class="card">
+      <span class="card-num" id="absentToday">-</span>
+      <span class="card-label">Absent Today</span>
+    </div>
+  </div>
+
+  <div class="hero-actions">
+    <a href="/register" class="btn btn-primary">Register Student</a>
+    <a href="/attendance" class="btn btn-success">Mark Attendance</a>
+    <a href="/dashboard" class="btn btn-secondary">View Dashboard</a>
+  </div>
+</section>
+
+<script>
+  fetch('/api/attendance/summary')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('totalStudents').textContent = data.summary.total_students;
+      document.getElementById('presentToday').textContent = data.summary.present_today;
+      document.getElementById('absentToday').textContent = data.summary.absent_today;
+    });
+</script>
+{% endblock %}

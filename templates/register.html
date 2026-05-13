@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Register Student{% endblock %}
+{% block content %}
+<h2>📋 Register New Student</h2>
+
+<div class="form-card">
+  <div class="form-group">
+    <label>Roll Number *</label>
+    <input type="text" id="rollNumber" placeholder="e.g. 2111CS020162" required/>
+  </div>
+  <div class="form-group">
+    <label>Full Name *</label>
+    <input type="text" id="studentName" placeholder="Enter full name" required/>
+  </div>
+  <div class="form-group">
+    <label>Email</label>
+    <input type="email" id="studentEmail" placeholder="student@example.com"/>
+  </div>
+  <div class="form-group">
+    <label>Department</label>
+    <input type="text" id="department" placeholder="e.g. AIML"/>
+  </div>
+  <div class="form-group">
+    <label>Year</label>
+    <input type="number" id="year" placeholder="1-4" min="1" max="4"/>
+  </div>
+  <button class="btn btn-primary" onclick="registerStudent()">Register Student</button>
+</div>
+
+<div id="captureSection" style="display:none;">
+  <h3>📸 Capture Face Images</h3>
+  <p>Position your face clearly. We'll capture <strong>30 images</strong> automatically.</p>
+  <video id="video" autoplay playsinline width="480" height="360"></video>
+  <canvas id="canvas" width="480" height="360" style="display:none;"></canvas>
+  <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  <p id="captureStatus">Click Start to begin face capture.</p>
+  <button class="btn btn-success" onclick="startCapture()">Start Capture</button>
+</div>
+
+<div id="statusMsg" class="status-msg"></div>
+
+<script>
+let capturedImages = [];
+let currentRoll = '';
+let capturing = false;
+let captureInterval = null;
+
+async function registerStudent() {
+  const roll = document.getElementById('rollNumber').value.trim();
+  const name = document.getElementById('studentName').value.trim();
+  const email = document.getElementById('studentEmail').value.trim();
+  const dept = document.getElementById('department').value.trim();
+  const year = parseInt(document.getElementById('year').value);
+
+  if (!roll || !name) {
+    showStatus('Roll number and name are required.', 'error');
+    return;
+  }
+
+  const res = await fetch('/api/students/register', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ roll_number: roll, name, email, department: dept, year })
+  });
+  const data = await res.json();
+  showStatus(data.message, data.success ? 'success' : 'error');
+
+  if (data.success) {
+    currentRoll = roll;
+    document.getElementById('captureSection').style.display = 'block';
+    await startCamera();
+  }
+}
+
+async function startCamera() {
+  const video = document.getElementById('video');
+  const stream = await navigator.mediaDevices.getUserMedia({video: true});
+  video.srcObject = stream;
+}
+
+async function startCapture() {
+  capturedImages = [];
+  capturing = true;
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let count = 0;
+
+  captureInterval = setInterval(async () => {
+    if (count >= 30) {
+      clearInterval(captureInterval);
+      capturing = false;
+      await uploadImages();
+      return;
+    }
+    ctx.drawImage(video, 0, 0, 480, 360);
+    const b64 = canvas.toDataURL('image/jpeg', 0.8);
+    capturedImages.push(b64);
+    count++;
+    document.getElementById('progressFill').style.width = (count / 30 * 100) + '%';
+    document.getElementById('captureStatus').textContent = `Captured ${count}/30 images...`;
+  }, 200);
+}
+
+async function uploadImages() {
+  document.getElementById('captureStatus').textContent = 'Uploading and saving images...';
+  const res = await fetch('/api/capture', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ roll_number: currentRoll, images: capturedImages })
+  });
+  const data = await res.json();
+  showStatus(data.message + ' Now training model...', 'success');
+  await fetch('/api/train', { method: 'POST' });
+  showStatus('Registration complete! Model retrained.', 'success');
+}
+
+function showStatus(msg, type) {
+  const el = document.getElementById('statusMsg');
+  el.textContent = msg;
+  el.className = 'status-msg ' + type;
+}
+</script>
+{% endblock %}
